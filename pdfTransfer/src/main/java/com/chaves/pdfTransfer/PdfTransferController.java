@@ -141,7 +141,7 @@ public class PdfTransferController {
     }
 
     @GetMapping("/download/{fileName}")
-    public ResponseEntity downloadFileFromLocal(@PathVariable String fileName) {
+    public ResponseEntity downloadFile(@PathVariable String fileName) {
         Path path = Paths.get("files\\download\\" + fileName);
         Resource resource = null;
         try {
