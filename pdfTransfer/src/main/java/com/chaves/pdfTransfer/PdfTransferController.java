@@ -57,7 +57,7 @@ public class PdfTransferController {
 
         String zipFolderName ="boletos_unificados" + ".zip";
 
-        String filepathzipped = "files\\download\\" +zipFolderName;
+        String filepathzipped = zipFolderName;
 
         fos = new FileOutputStream(filepathzipped);
 
@@ -66,9 +66,15 @@ public class PdfTransferController {
         Resource resourceZip = null;
 
         for (String fileName : name) {
+
+            System.out.println("zipando o arquivo: " + fileName);
+
             Path path = Paths.get(fileName);
             Resource resource = new UrlResource(path.toUri().toURL());
             ZipEntry zipEntry = new ZipEntry(resource.getFilename());
+
+            System.out.println("resource name file: " + resource.getFilename());
+
             zipEntry.setSize(resource.contentLength());
             zipOut.putNextEntry(zipEntry);
             StreamUtils.copy(resource.getInputStream(), zipOut);
@@ -84,6 +90,8 @@ public class PdfTransferController {
 
     @PostMapping("/upload")
     public List<String> uploadPdfAndGenerateNewFiles(@RequestParam("file") MultipartFile multipartFile) throws IOException {
+
+        System.out.println("Entering in uploadPdfAndGenerateNewFiles method");
 
         PdfReader pdfReader = new PdfReader(multipartFile.getInputStream());
 
@@ -113,11 +121,13 @@ public class PdfTransferController {
 
                 String content[] = pageContent.split("\n");
 
-                outputDoc.save("files\\download\\"+content[7].split(" ")[0]+".pdf");
+                outputDoc.save(content[7].split(" ")[0]+".pdf");
 
-                String fileName = new String("files\\download\\"+content[7].split(" ")[0] + ".pdf");
+                String fileName = new String(content[7].split(" ")[0] + ".pdf");
 
-                fileNames.add(fileName);
+                fileNames.add(content[7].split(" ")[0] + ".pdf");
+
+                System.out.println("Gerando o arquivo fileName pdf: " + fileName);
 
                 outputDoc.close();
 
@@ -131,6 +141,8 @@ public class PdfTransferController {
 
         doc.close();
 
+        System.out.println("chamando metodo para zipar os arquivos");
+
         String zipUrl = zipFiles(fileNames);
 
         fileNames.add(zipUrl);
@@ -142,10 +154,15 @@ public class PdfTransferController {
 
     @GetMapping("/download/{fileName}")
     public ResponseEntity downloadFile(@PathVariable String fileName) {
-        Path path = Paths.get("files\\download\\" + fileName);
+
+        System.out.println("entrando no metodo downloadFile recebendo o arquivo: " + fileName);
+
+        Path path = Paths.get(fileName);
         Resource resource = null;
         try {
             resource = new UrlResource(path.toUri().toURL());
+
+            System.out.println("resource: " + resource.getFilename());
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
@@ -157,10 +174,14 @@ public class PdfTransferController {
 
     @GetMapping("/downloadzip/{zipName}")
     public ResponseEntity downloadZipFile(@PathVariable String zipName) {
-        Path path = Paths.get("files\\download\\" + zipName);
+
+        System.out.println("entrando no metodo downloadZipFile recebendo o arquivo: " + zipName);
+
+        Path path = Paths.get(zipName);
         Resource resource = null;
         try {
             resource = new UrlResource(path.toUri().toURL());
+            System.out.println("resource: " + resource.getFilename());
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
