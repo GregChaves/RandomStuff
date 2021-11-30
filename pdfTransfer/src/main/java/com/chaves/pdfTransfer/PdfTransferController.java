@@ -156,7 +156,7 @@ public class PdfTransferController {
     }
 
     @GetMapping("/downloadzip/{zipName}")
-    public ResponseEntity downloadZipFromLocal(@PathVariable String zipName) {
+    public ResponseEntity downloadZipFile(@PathVariable String zipName) {
         Path path = Paths.get("files\\download\\" + zipName);
         Resource resource = null;
         try {
