@@ -86,33 +86,16 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+
 			<plugin>
-				<groupId>com.microsoft.azure</groupId>
-				<artifactId>azure-webapp-maven-plugin</artifactId>
-				<version>2.2.1</version>
+				<groupId>com.heroku.sdk</groupId>
+				<artifactId>heroku-maven-plugin</artifactId>
+				<version>3.0.3</version>
 				<configuration>
-					<deploymentType>jar</deploymentType>
-					<!-- configure app to run on port 80, required by App Service -->
-					<appSettings>
-						<property>
-							<name>JAVA_OPTS</name>
-							<value>-Dserver.port=80</value>
-						</property>
-					</appSettings>
-					<!-- Web App information -->
-					<resourceGroup>${azure.resourcegroup.name}</resourceGroup>
-					<appName>${azure.webapp.name}</appName>
-					<region>${azure.region}</region>
-					<!-- Java Runtime Stack for Web App on Linux -->
-					<runtime>
-						<os>Linux</os>
-						<javaVersion>Java 11</javaVersion>
-						<webContainer>Tomcat 8.5</webContainer>
-					</runtime>
-
+					<appName>upload-download-files-api</appName>
 				</configuration>
-
 			</plugin>
+
 		</plugins>
 	</build>
 
