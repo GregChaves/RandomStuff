@@ -1,13 +1,15 @@
 package com.chaves.pdfTransfer;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -19,6 +21,7 @@ import com.itextpdf.text.pdf.parser.PdfTextExtractor;
 import com.itextpdf.text.pdf.parser.SimpleTextExtractionStrategy;
 import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.multipdf.PDFCloneUtility;
@@ -26,22 +29,34 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.PDPageTree;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.text.PDFTextStripper;
 
 import org.apache.commons.fileupload.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.commons.CommonsMultipartFile;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import org.springframework.mock.web.MockMultipartFile;
+
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 
@@ -49,8 +64,53 @@ import javax.servlet.http.HttpServletResponse;
 @RequestMapping("/api/v1/pdf")
 public class PdfTransferController {
 
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurerAdapter() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**").allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS").allowedOrigins("*");
+            }
+        };
+    }
+
+    public String zipFiles(@RequestParam List<String> name) throws IOException {
+
+        FileOutputStream fos = null;
+        ZipOutputStream zipOut = null;
+        FileInputStream fis = null;
+
+        String zipFolderName ="boletos_unificados" + ".zip";
+
+        String filepathzipped = "files\\download\\" +zipFolderName;
+
+        fos = new FileOutputStream(filepathzipped);
+
+        zipOut = new ZipOutputStream(new BufferedOutputStream(fos));
+
+        Resource resourceZip = null;
+
+        for (String fileName : name) {
+            Path path = Paths.get(fileName);
+            Resource resource = new UrlResource(path.toUri().toURL());
+            ZipEntry zipEntry = new ZipEntry(resource.getFilename());
+            zipEntry.setSize(resource.contentLength());
+            zipOut.putNextEntry(zipEntry);
+            StreamUtils.copy(resource.getInputStream(), zipOut);
+            zipOut.closeEntry();
+        }
+
+        zipOut.finish();
+        zipOut.close();
+
+        //downloadZipFromLocal(zipFolderName);
+
+        return filepathzipped;
+
+    }
+
     @PostMapping("/upload")
-    public ResponseEntity registerStudentForCourse(@RequestParam("file") MultipartFile multipartFile) throws IOException {
+    public List<String> uploadPdfAndGenerateNewFiles(@RequestParam("file") MultipartFile multipartFile) throws IOException {
 
         File file = FileUtils.getFile(multipartFile.getOriginalFilename());
 
@@ -59,6 +119,8 @@ public class PdfTransferController {
         PdfReader pdfReader = new PdfReader(multipartFile.getInputStream());
 
         PDDocument doc = PDDocument.load(multipartFile.getInputStream());
+
+        List<String> fileNames = new ArrayList<>();
 
         try {
 
@@ -79,10 +141,17 @@ public class PdfTransferController {
 
                 String pageContent = PdfTextExtractor.getTextFromPage(pdfReader, index);
                 pageContent = pageContent.trim();
+
                 String content[] = pageContent.split("\n");
 
-                outputDoc.save(content[7].split(" ")[0]+".pdf");
+                outputDoc.save("files\\download\\"+content[7].split(" ")[0]+".pdf");
+
+                String fileName = new String("files\\download\\"+content[7].split(" ")[0] + ".pdf");
+
+                fileNames.add(fileName);
+
                 outputDoc.close();
+
                 index++;
 
             }
@@ -93,70 +162,66 @@ public class PdfTransferController {
 
         doc.close();
 
-        String fileDownloadUri = "ok";
+        String zipUrl = zipFiles(fileNames);
+
+        fileNames.add(zipUrl);
+
+        return fileNames;
 
 
-        return ResponseEntity.ok(fileDownloadUri);
     }
 
-    private static void addText(PDDocument document, PDPage page, String myText, float x, float y) {
-
+    @GetMapping("/download/{fileName}")
+    public ResponseEntity downloadFileFromLocal(@PathVariable String fileName) {
+        Path path = Paths.get("files\\download\\" + fileName);
+        Resource resource = null;
         try {
-            // Get Content Stream for Writing Data
-            PDPageContentStream contentStream = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true);
+            resource = new UrlResource(path.toUri().toURL());
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/pdf"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
+    }
 
-            // Begin the Content stream
-            contentStream.beginText();
+    @GetMapping("/downloadzip/{zipName}")
+    public ResponseEntity downloadZipFromLocal(@PathVariable String zipName) {
+        Path path = Paths.get("files\\download\\" + zipName);
+        Resource resource = null;
+        try {
+            resource = new UrlResource(path.toUri().toURL());
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
+    }
 
-            // Setting the font to the Content stream
-            contentStream.setFont(PDType1Font.COURIER, 12);
+    /*@GetMapping("/files")
+    public List<String> getAllDownloadedFiles() {
 
+        List<String> downloadFilesUrl = new ArrayList<>();
 
-            // Setting the position for the line
-            contentStream.newLineAtOffset(x, y);
-
-            // Adding text in the form of string
-            contentStream.showText(myText);
-
-            // Ending the content stream
-            contentStream.endText();
-
-            // Closing the content stream
-            contentStream.close();
-
-        } catch (IOException e) {
+        Path path = Paths.
+        Resource resource = null;
+        try {
+            resource = new UrlResource(path.toUri().toURL());
+        } catch (MalformedURLException e) {
             e.printStackTrace();
         }
 
-    }
+    }*/
 
 
 
-        @GetMapping("/status")
+
+    @GetMapping("/status")
     public String serviceStatus() {
         return "Running!";
     }
-
-
-
-   /* @GetMapping(value = "/upload-pdf", produces="application/zip")
-    public void zipDownload(@RequestParam("file") MultipartFile file) throws IOException {
-
-
-        ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream());
-        for (String fileName : name) {
-            FileSystemResource resource = new FileSystemResource("/" + fileName);
-            ZipEntry zipEntry = new ZipEntry(resource.getFilename());
-            zipEntry.setSize(resource.contentLength());
-            zipOut.putNextEntry(zipEntry);
-            StreamUtils.copy(resource.getInputStream(), zipOut);
-            zipOut.closeEntry();
-        }
-        zipOut.finish();
-        zipOut.close();
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.addHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + zipOut + "\"");
-    }*/
-
 
 }
