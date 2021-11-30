@@ -170,24 +170,6 @@ public class PdfTransferController {
                 .body(resource);
     }
 
-    /*@GetMapping("/files")
-    public List<String> getAllDownloadedFiles() {
-
-        List<String> downloadFilesUrl = new ArrayList<>();
-
-        Path path = Paths.
-        Resource resource = null;
-        try {
-            resource = new UrlResource(path.toUri().toURL());
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-
-    }*/
-
-
-
-
     @GetMapping("/status")
     public String serviceStatus() {
         return "Running!";
