@@ -13,18 +13,18 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>pdfTransfer</name>
 	<description>Chaves pdf logics</description>
-	<properties>
+	<!--<properties>
 		<java.version>11</java.version>
 		<azure.version>3.0.0</azure.version>
-		<!-- properties for azure -->
+		&lt;!&ndash; properties for azure &ndash;&gt;
 		<azure.jre.version>jre11</azure.jre.version>
 		<azure.region>westeurope</azure.region>
 		<appServicePlanName>ASP-FrontApps-9e47</appServicePlanName>
 		<azure.resourcegroup.name>Back-end</azure.resourcegroup.name>
-		<!-- Important name of webapp must be LOWERCASE -->
+		&lt;!&ndash; Important name of webapp must be LOWERCASE &ndash;&gt;
 		<azure.webapp.name>uploaddownloadfilesapi</azure.webapp.name>
-		<!-- end properties for azure -->
-	</properties>
+		&lt;!&ndash; end properties for azure &ndash;&gt;
+	</properties>-->
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -68,7 +68,7 @@
 
 		</dependencies>
 
-	<dependencyManagement>
+	<!--<dependencyManagement>
 		<dependencies>
 			<dependency>
 				<groupId>com.azure.spring</groupId>
@@ -78,7 +78,7 @@
 				<scope>import</scope>
 			</dependency>
 		</dependencies>
-	</dependencyManagement>
+	</dependencyManagement>-->
 
 	<build>
 		<plugins>
