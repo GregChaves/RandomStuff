@@ -15,13 +15,21 @@
 	<description>Chaves pdf logics</description>
 	<properties>
 		<java.version>11</java.version>
+		<azure.version>3.0.0</azure.version>
+		<!-- properties for azure -->
+		<azure.jre.version>jre11</azure.jre.version>
+		<azure.region>westeurope</azure.region>
+		<appServicePlanName>ASP-FrontApps-9e47</appServicePlanName>
+		<azure.resourcegroup.name>Back-end</azure.resourcegroup.name>
+		<!-- Important name of webapp must be LOWERCASE -->
+		<azure.webapp.name>uploaddownloadfilesapi</azure.webapp.name>
+		<!-- end properties for azure -->
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
-
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
@@ -58,21 +66,52 @@
 			<version>5.5.13.2</version>
 		</dependency>
 
-		<!-- https://mvnrepository.com/artifact/org.springframework/spring-mock -->
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-mock</artifactId>
-			<version>2.0.8</version>
-		</dependency>
+		</dependencies>
 
-
-	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>com.azure.spring</groupId>
+				<artifactId>azure-spring-boot-bom</artifactId>
+				<version>${azure.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>com.microsoft.azure</groupId>
+				<artifactId>azure-webapp-maven-plugin</artifactId>
+				<version>2.2.1</version>
+				<configuration>
+					<deploymentType>jar</deploymentType>
+					<!-- configure app to run on port 80, required by App Service -->
+					<appSettings>
+						<property>
+							<name>JAVA_OPTS</name>
+							<value>-Dserver.port=80</value>
+						</property>
+					</appSettings>
+					<!-- Web App information -->
+					<resourceGroup>${azure.resourcegroup.name}</resourceGroup>
+					<appName>${azure.webapp.name}</appName>
+					<region>${azure.region}</region>
+					<!-- Java Runtime Stack for Web App on Linux -->
+					<runtime>
+						<os>Linux</os>
+						<javaVersion>Java 11</javaVersion>
+						<webContainer>Tomcat 8.5</webContainer>
+					</runtime>
+
+				</configuration>
+
 			</plugin>
 		</plugins>
 	</build>
