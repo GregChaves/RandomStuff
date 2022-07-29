@@ -3,16 +3,20 @@ package com.chaves.pdfTransfer;
 import java.io.*;
 import java.net.MalformedURLException;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.multipdf.PDFCloneUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -28,11 +32,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.commons.CommonsMultipartFile;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
-
-
 
 
 @RestController
@@ -49,13 +52,21 @@ public class PdfTransferController {
         };
     }
 
-    public String zipFiles(@RequestParam List<String> name) throws IOException {
+    public String zipFiles(@RequestParam List<String> name, String action) throws IOException {
 
         FileOutputStream fos = null;
         ZipOutputStream zipOut = null;
         FileInputStream fis = null;
 
-        String zipFolderName ="boletos_unificados" + ".zip";
+        String zipFolderName = "";
+
+
+        if (action.equalsIgnoreCase("extraction")){
+            zipFolderName ="boletos_unificados" + ".zip";
+
+        }else if(action.equalsIgnoreCase("rename")){
+            zipFolderName ="boletos_renomeados" + ".zip";
+        }
 
         String filepathzipped = zipFolderName;
 
@@ -143,7 +154,7 @@ public class PdfTransferController {
 
         System.out.println("chamando metodo para zipar os arquivos");
 
-        String zipUrl = zipFiles(fileNames);
+        String zipUrl = zipFiles(fileNames, "extraction");
 
         fileNames.add(zipUrl);
 
@@ -189,6 +200,112 @@ public class PdfTransferController {
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
+    }
+
+    @PostMapping("/upload/zipfile")
+    public List<String> uploadZipAndRenameFiles(@RequestParam("file") MultipartFile files) throws IOException {
+
+        System.out.println("entrando no metodo uploadZipAndRenameFiles recebendo o arquivo: " + files.getOriginalFilename());
+
+        unzipFile(files);
+
+        List<String> finalNames = new ArrayList<String>();
+
+        List<File> filesInFolder = Files.walk(Paths.get("unzipTest"))
+                .filter(Files::isRegularFile)
+                .map(Path::toFile)
+                .collect(Collectors.toList());
+
+        for (File filePdf: filesInFolder) {
+
+            FileItem fileItem = new DiskFileItemFactory().createItem("filex",
+                    Files.probeContentType(filePdf.toPath()), false, filePdf.getName());
+
+            try (InputStream in = new FileInputStream(filePdf); OutputStream out = fileItem.getOutputStream()) {
+                in.transferTo(out);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid file: " + e, e);
+            }
+
+            System.out.println("##### "+filePdf.getName());
+
+            if (!filePdf.getName().contains(".pdf")){
+                continue;
+
+            }
+
+            CommonsMultipartFile multipartFile = new CommonsMultipartFile(fileItem);
+
+            PdfReader pdfReader = new PdfReader(multipartFile.getInputStream());
+
+            String pageContent = PdfTextExtractor.getTextFromPage(pdfReader, 1);
+            pageContent = pageContent.trim();
+
+            String content[] = pageContent.split("\n");
+            String novoNomedoArquivo = (content[4].split(" ")[0]+".pdf");
+
+            //Files.deleteIfExists(filePdf.toPath());
+            //Files.move(filePdf.toPath(), filePdf.toPath().resolveSibling(novoNomedoArquivo));
+            filePdf.renameTo(new File(novoNomedoArquivo));
+
+            finalNames.add(novoNomedoArquivo);
+
+            System.out.println(filePdf.getName());
+
+        }
+
+        String zipUrl = zipFiles(finalNames, "rename");
+
+        finalNames.add(zipUrl);
+
+        return finalNames;
+
+    }
+
+    public void unzipFile(MultipartFile fileZip) throws IOException {
+
+        File destDir = new File("unzipTest");
+        byte[] buffer = new byte[1024];
+        ZipInputStream zis = new ZipInputStream((fileZip.getInputStream()));
+        ZipEntry zipEntry = zis.getNextEntry();
+        while (zipEntry != null) {
+            File newFile = newFile(destDir, zipEntry);
+            if (zipEntry.isDirectory()) {
+                if (!newFile.isDirectory() && !newFile.mkdirs()) {
+                    throw new IOException("Failed to create directory " + newFile);
+                }
+            } else {
+                // fix for Windows-created archives
+                File parent = newFile.getParentFile();
+                if (!parent.isDirectory() && !parent.mkdirs()) {
+                    throw new IOException("Failed to create directory " + parent);
+                }
+
+                // write file content
+                FileOutputStream fos = new FileOutputStream(newFile);
+                int len;
+                while ((len = zis.read(buffer)) > 0) {
+                    fos.write(buffer, 0, len);
+                }
+                fos.close();
+            }
+            zipEntry = zis.getNextEntry();
+        }
+        zis.closeEntry();
+        zis.close();
+    }
+
+    public static File newFile(File destinationDir, ZipEntry zipEntry) throws IOException {
+        File destFile = new File(destinationDir, zipEntry.getName());
+
+        String destDirPath = destinationDir.getCanonicalPath();
+        String destFilePath = destFile.getCanonicalPath();
+
+        if (!destFilePath.startsWith(destDirPath + File.separator)) {
+            throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
+        }
+
+        return destFile;
     }
 
     @GetMapping("/status")
