@@ -84,10 +84,17 @@ public class PdfTransferController {
             Resource resource = new UrlResource(path.toUri().toURL());
             ZipEntry zipEntry = new ZipEntry(resource.getFilename());
 
-            System.out.println("resource name file: " + resource.getFilename());
-
             zipEntry.setSize(resource.contentLength());
-            zipOut.putNextEntry(zipEntry);
+            try {
+                zipOut.putNextEntry(zipEntry);
+            }
+
+            catch (IOException e) {
+            zipOut.putNextEntry(new ZipEntry(resource.getFilename().concat("XW")));
+            System.out.println("Numero do doc repetido?");
+
+            }
+
             StreamUtils.copy(resource.getInputStream(), zipOut);
             zipOut.closeEntry();
         }
